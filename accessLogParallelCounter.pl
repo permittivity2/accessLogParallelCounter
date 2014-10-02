@@ -53,7 +53,7 @@ $SIG{'HUP'} = 'SIG_HUP';
 
 # Specific Program modules
 # These should be modified/edited as necessary for your specific script
-#use NetAddr::IP::Util qw(inet_ntoa);
+use DateTime;
 #use Net::DNS::Dig;
 
 #Date Time stuff that always needs to be done.  <sigh>
@@ -83,6 +83,9 @@ $configs{'lockfilename'}=$configs{'basefilename'}.".lock" if ( ! defined $config
 $configs{'procid'}="$$" if ( ! defined $configs{'procid'} );
 $configs{'logdir'}="/var/logs" if ( ! defined $configs{'logdir'} );
 $configs{'rundir'}="/opt/".$configs{'basefilename'} if ( ! defined $configs{'rundir'} );
+$configs{'accessLogFile'}="/var/downloads/gemalto/09/tom.log.2014.09.19.9002" if ( ! defined $configs{'accessLogFile'} );
+$configs{'startTime'}="2014-09-3 00:00:00" if ( ! defined $configs{'startTime'} );
+$configs{'duration'}=3600 if ( ! defined $configs{'duration'} );
 
 GetOptions(
         'verbose+' => \$configs{'verbose'},             'help' => \$configs{'help'},            'stop' => \$configs{'stop'}, 
@@ -90,7 +93,10 @@ GetOptions(
         'lockdir=s' => \$configs{'lockdir'},            'lockfilename=s' => \$configs{'lockfilename'}, 
         'configFile=s' => \$configs{'configFile'},      'procid' => \$configs{'procid'},
         'basefilename=s' => \$configs{'basefilename'},  'logdir=s' => \$configs{'logdir'},      'rundir=s' => \$configs{'rundir'},
-        'printConfigs=s' => \$configs{'printConfigs'}
+        'printConfigs=s' => \$configs{'printConfigs'},
+        'accessLogFile=s' => \$configs{'accessLogFile'},
+        'startTime=s' => \$configs{'startTime'},
+        'duration:3600' => \$configs{'duration'}
         );
 
 setConfigsFromFile();
@@ -115,21 +121,12 @@ sub main {
 #more sub calls in runProgram.
 #Of course, every program has it's own unique necessities so do as you please
 
-
-
-
         helpDescribe() if ( defined $configs{'help'} );
         SIG_INT() if ( defined $configs{'stop'} );
         setLockFile();
 
-
-
-
         # Re-nice this to $NICE.  This may not be necessary on multi-core/cpu systems 
         my @output = `renice +$configs{'nice'} $configs{'procid'} > /dev/null 2>&1`;
-
-
-
 
         if ( $configs{'cycles'} == 0 ) {
                 while ( 1 ) {
@@ -157,17 +154,12 @@ sub main {
 }
 
 
-
-
 sub setLockFile {
         warn "Running sub setLockFile \n" if ($configs{'verbose'}>1);
 #Description: If PID in lockfile already exists then the program is exitted else 
 #       A new lockfile is created
 #Uses:
 #       File::Lockfile
-
-
-
 
         if ( my $pid = $LOCKFILE->check ) {
                 warn "\tProgram is already running with PID: $pid";
@@ -179,9 +171,6 @@ sub setLockFile {
 sub helpDescribe {
         warn "Running sub helpDescribe\n" if ($configs{'verbose'}>1);
 # Description: Provides info to screen for user
-
-
-
 
         system 'clear';
         print "--verbose -> more uses provides more verbosity.  Be carefull.  You may get more than you bargained for.\n";
@@ -196,10 +185,16 @@ sub helpDescribe {
         print "--lockfilename -> Name of the lockfile for this program to use. \n\t\tExample --lockfilename ".$configs{'lockfilename'}."\n";
         print "--configFile -> If defined, this will be the config file to be used. \n\t\tConfigurations in the config file override any default configs ond override command line settings, \n\t\twith the exception of the configFile setting itself.\n\t\tExample --configFile ".$configs{'configFile'}."\n";
         print "--procid -> If you want to override the process ID then use this to set it. \n\t\tSeems silly to do this but hey, whatever floats your boat..\n\t\tExample --procid ".$configs{'procid'}."\n";
-        print "--basefilename -> This is really the program name.\n\t\tBy default the program name is the base filename of the initiating script.\n\t\tExample --basefailename ".$configs{'basefilename'}."\n";
+        print "--basefilename -> This is really the program name.\n\t\tBy default the program name is the base filename of the initiating script.\n\t\tExample --basefilename ".$configs{'basefilename'}."\n";
         print "--logdir -> Path of directory for this program to use for logging. \n\t\tExample --logdir ".$configs{'logdir'}."\n";
         print "--rundir -> Path of directory for this program to use for various running information. \n\t\tExample --rundir ".$configs{'rundir'}."\n";
 
+        print "--accessLogFile -> Full path of access log file to crunch through. \n\t\tExample --accessLogFile".$configs{'accessLogFile'}."\n";
+        print "--startTime -> The access log file is for an entire day of logs.  We only want to analzye for a particular portion of that day. \n";
+        print "\t Give the start time of when we want to analyze.  Format must be: YYYY-MM-DD-HH-MM-SS in 24hr format. ";
+        print "\n\t\tExample --startTime ".$configs{'startTime'}."\n";
+        print "--duration -> The access log file is for an entire day of logs.  We only want to analzye for a particular portion of that day. \n";
+        print "\t Give the duration in seconds from the start time for which the logs will be analyzed.  \n\t\tExample --duration ".$configs{'duration'}."\n";
         exit 0;
 }
 
@@ -247,9 +242,6 @@ sub SIG_INT {
         exit;
 }
 
-
-
-
 sub SIG_HUP {
         warn "Running SIG_INT\n" if ($configs{'verbose'}>1);
 #Description: This sub is run when signal hup is caught
@@ -291,10 +283,25 @@ sub runProgram {
 
         $i=0;
 
-        while ( $i < 100 ) {
-                print $someArgument."\n";
-                sleep 3;
-        }
+#        while ( $i < 100 ) {
+#                print $someArgument."\n";
+#                sleep 3;
+#        }
+        
+        my @startTimeArray = split(/-/, $configs{startTime});
+        
+        my $dt = DateTime->new(
+            year    => $startTimeArray[0],
+            month   => $startTimeArray[1],
+            day     => $startTimeArray[2],
+            hour    => $startTimeArray[3],
+            minute  => $startTimeArray[4],
+            second  => $startTimeArray[5],
+            nanosecond => 0,
+            time_zone => 'America/Chicago',
+        );
+        
+        open FILE, $configs{accessLogFile} or die "$! file not able to be opened. Death! \n";        
 
         $i=threads->tid();
         $thrCleared{$i}=1;
