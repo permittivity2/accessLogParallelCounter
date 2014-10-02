@@ -36,14 +36,14 @@ use strict;
 # specific script
 #############################################################################
 # Program Information
-# Author:  John Doe, johndo at superblah dot com
+# Author:  Jeffrey Gardner jeffrey.gardner@sprint.com
 # Script version:
-#                13.05.19 - Alpha  (This is an example and may be deleted for
-#                         specific script use
-#                13.08.20 - Beta (an added line that may be deleted or edited
+#                14.10.01 Alpha
+#                
 # Description:
-# This program doesn’t do a darn thing but I wanted to put something in here 
-# as a holder for future stuff that should go here as a description
+# This script will look at access logs for Gemalto determine number of 
+# parallel connections for each connection point 
+# 
 #############################################################################
 
 #Signal handlers
